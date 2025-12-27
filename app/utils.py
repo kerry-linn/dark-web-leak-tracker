@@ -1,9 +1,29 @@
-import requests
+import json
+import os
+from datetime import datetime
+
 import pandas as pd
 import plotly.express as px
-import json
-from datetime import datetime
-import os
+import requests
+
+
+def load_json(filepath, default=None):
+    """Load JSON file, returning default if file doesn't exist or is invalid."""
+    if default is None:
+        default = []
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return default
+    return default
+
+
+def save_json(filepath, data):
+    """Save data to JSON file."""
+    with open(filepath, "w") as f:
+        json.dump(data, f, indent=4)
 
 def check_breaches(email_or_username):
     url = f"https://leakcheck.io/api/public?check={email_or_username}"
@@ -23,9 +43,6 @@ def check_breaches(email_or_username):
         return {"success": False, "error": str(e)}
 
 def generate_charts(breach_data):
-    import pandas as pd
-    import plotly.express as px
-
     timeline_fig = None
 
     if "sources" in breach_data:
@@ -65,74 +82,25 @@ def clean_sources_light(sources):
     return cleaned
 
 def save_search(query, breach_data, history_file="data/search_history.json"):
-    # Create a new search record
     search_record = {
         "query": query,
         "timestamp": datetime.now().isoformat(),
         "found": breach_data.get("found", 0),
         "sources": breach_data.get("sources", [])
     }
-
-    # Load existing history (or start fresh)
-    if os.path.exists(history_file):
-        with open(history_file, "r") as f:
-            try:
-                history = json.load(f)
-            except json.JSONDecodeError:
-                history = []
-    else:
-        history = []
-
-    # Append the new record
+    history = load_json(history_file, [])
     history.append(search_record)
-
-    # Save it back
-    with open(history_file, "w") as f:
-        json.dump(history, f, indent=4)
-
-def save_query_log(query, found_count, log_file="data/query_log.json"):
-    record = {
-        "query": query,
-        "timestamp": datetime.now().isoformat(),
-        "found": found_count
-    }
-
-    # Load or create
-    if os.path.exists(log_file):
-        with open(log_file, "r") as f:
-            try:
-                log = json.load(f)
-            except json.JSONDecodeError:
-                log = []
-    else:
-        log = []
-
-    log.append(record)
-
-    with open(log_file, "w") as f:
-        json.dump(log, f, indent=4)
+    save_json(history_file, history)
 
 def add_to_watchlist(query, watchlist_file="data/watchlist.json"):
     query = query.strip().lower()
-    
-    if os.path.exists(watchlist_file):
-        with open(watchlist_file, "r") as f:
-            try:
-                watchlist = json.load(f)
-            except json.JSONDecodeError:
-                watchlist = []
-    else:
-        watchlist = []
+    watchlist = load_json(watchlist_file, [])
 
-    # Don't add duplicates
     if query not in watchlist:
         watchlist.append(query)
-
-        with open(watchlist_file, "w") as f:
-            json.dump(watchlist, f, indent=4)
-
-        return True  # Added successfully
-    return False  # Already existed
+        save_json(watchlist_file, watchlist)
+        return True
+    return False
 
 def merge_breach_sources(leakcheck_sources, intelx_results):
     """

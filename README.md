@@ -45,9 +45,10 @@ python run.py
 
 ```env
 INTELX_API_KEY=your_intelx_api_key_here
+SECRET_KEY=your_flask_secret_key
 EMAIL_ADDRESS=your_gmail_address
 EMAIL_PASSWORD=your_gmail_app_password
-SECRET_KEY=your_flask_secret_key
+TO_EMAIL=optional_recipient_email
 ```
 
 Use a Gmail [app password](https://support.google.com/accounts/answer/185833) — not your actual email password.
@@ -68,7 +69,7 @@ dark-web-leak-tracker/
 ├── data/
 │   ├── search_history.json
 │   ├── watchlist.json
-│   ├── query_log.json
+│   └── watchlist_checks.json
 ├── watchlist_checker.py
 ├── run.py
 ├── requirements.txt

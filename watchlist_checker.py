@@ -1,35 +1,20 @@
-import json
 import os
-from datetime import datetime
-from app.utils import check_breaches
-from email.mime.text import MIMEText
 import smtplib
+from datetime import datetime
+from email.mime.text import MIMEText
+
+from dotenv import load_dotenv
+
+from app.utils import check_breaches, load_json, save_json
+
+load_dotenv()
 
 WATCHLIST_FILE = "data/watchlist.json"
 CHECK_HISTORY_FILE = "data/watchlist_checks.json"
 
-EMAIL_ADDRESS = "kerry.lin3690@gmail.com"       # Your Gmail (or SMTP-enabled) address
-EMAIL_PASSWORD = "lsvp omjn jlmf bkmx"    # App password (not your Gmail password!)
-TO_EMAIL = "kerry.lin3690@gmail.com"
-
-def load_watchlist():
-    if os.path.exists(WATCHLIST_FILE):
-        with open(WATCHLIST_FILE, "r") as f:
-            return json.load(f)
-    return []
-
-def load_check_history():
-    if os.path.exists(CHECK_HISTORY_FILE):
-        with open(CHECK_HISTORY_FILE, "r") as f:
-            try:
-                return json.load(f)
-            except json.JSONDecodeError:
-                return {}
-    return {}
-
-def save_check_history(history):
-    with open(CHECK_HISTORY_FILE, "w") as f:
-        json.dump(history, f, indent=4)
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+TO_EMAIL = os.getenv("TO_EMAIL", EMAIL_ADDRESS)
 
 def send_email_alert(query, new_sources):
     body = f"⚠️ New breach(es) detected for: {query}\n\n"
@@ -45,9 +30,10 @@ def send_email_alert(query, new_sources):
         smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
         smtp.send_message(msg)
 
+
 def check_watchlist():
-    watchlist = load_watchlist()
-    history = load_check_history()
+    watchlist = load_json(WATCHLIST_FILE, [])
+    history = load_json(CHECK_HISTORY_FILE, {})
     updated = False
 
     for query in watchlist:
@@ -67,7 +53,7 @@ def check_watchlist():
             print(f"Error checking {query}: {result.get('error')}")
 
     if updated:
-        save_check_history(history)
+        save_json(CHECK_HISTORY_FILE, history)
 
 if __name__ == "__main__":
     print(f"🔄 Running watchlist check at {datetime.now().isoformat()}")

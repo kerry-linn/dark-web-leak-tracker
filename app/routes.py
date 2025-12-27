@@ -1,11 +1,22 @@
-import os
-from flask import Blueprint, flash, send_file, redirect, render_template, request
-from app.utils import add_to_watchlist, check_breaches, generate_charts, clean_sources_light, save_search, save_query_log
 import csv
 import io
 import json
+
+from flask import Blueprint, flash, redirect, render_template, request, send_file
+
 from app.intelx_utils import search_intelx
-from app.utils import merge_breach_sources
+from app.utils import (
+    add_to_watchlist,
+    check_breaches,
+    clean_sources_light,
+    generate_charts,
+    load_json,
+    merge_breach_sources,
+    save_json,
+    save_search,
+)
+
+WATCHLIST_FILE = "data/watchlist.json"
 
 
 main = Blueprint("main", __name__)
@@ -15,8 +26,6 @@ def index():
     results = None
     error = None
     charts = {"timeline": None}
-    watchlist = []
-    watchlist_file = "data/watchlist.json"
 
     if request.method == "POST":
         query = request.form.get("email")
@@ -42,17 +51,10 @@ def index():
                 # Generate chart and save
                 charts = generate_charts(data)
                 save_search(query, data)
-                save_query_log(query, data["found"])
             else:
                 error = data.get("error", "Something went wrong.")
 
-    if os.path.exists(watchlist_file):
-        with open(watchlist_file, "r") as f:
-            try:
-                watchlist = json.load(f)
-            except json.JSONDecodeError:
-                watchlist = []
-                
+    watchlist = load_json(WATCHLIST_FILE, [])
     return render_template("index.html", results=results, error=error, charts=charts, watchlist=watchlist)
 
 
@@ -65,8 +67,6 @@ def export_csv():
     if not sources or not query:
         return "Missing data", 400
 
-    # Convert JSON string to Python list
-    import json
     try:
         source_list = json.loads(sources)
     except json.JSONDecodeError:
@@ -90,7 +90,6 @@ def export_csv():
         download_name=filename
     )
 
-from flask import redirect, flash
 
 @main.route("/add_to_watchlist", methods=["POST"])
 def add_to_watchlist_route():
@@ -111,16 +110,11 @@ def add_to_watchlist_route():
 @main.route("/remove_from_watchlist", methods=["POST"])
 def remove_from_watchlist():
     item = request.form.get("item")
-    file_path = "data/watchlist.json"
+    watchlist = load_json(WATCHLIST_FILE, [])
 
-    if os.path.exists(file_path):
-        with open(file_path, "r") as f:
-            watchlist = json.load(f)
-
-        if item in watchlist:
-            watchlist.remove(item)
-            with open(file_path, "w") as f:
-                json.dump(watchlist, f, indent=4)
-            flash(f"❌ Removed '{item}' from watchlist", "warning")
+    if item in watchlist:
+        watchlist.remove(item)
+        save_json(WATCHLIST_FILE, watchlist)
+        flash(f"❌ Removed '{item}' from watchlist", "warning")
 
     return redirect("/")
